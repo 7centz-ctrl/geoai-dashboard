@@ -3,71 +3,68 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GEOAI · Jabodetabek Region Monitor</title>
-  <meta name="theme-color" content="#050814" />
-  <link rel="stylesheet" href="./assets/css/style.css" />
+  <title>GEOAI • Region Monitor (Jabodetabek)</title>
+
+  <link rel="preconnect" href="https://api.open-meteo.com" crossorigin>
+  <link rel="stylesheet" href="./assets/css/styles.css" />
 </head>
+
 <body>
-  <main class="app" id="app">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-row">
-          <span class="dot"></span>
-          <span class="brand-name">GEOAI</span>
-        </div>
+  <main class="wrap">
+    <section class="panel">
 
-        <div class="subrow">
-          <span class="muted">INDONESIA · JABODETABEK REGION</span>
-
-          <button class="region-btn" id="regionBtn" type="button" aria-haspopup="dialog" aria-controls="regionSheet">
-            <span id="regionPill">Jakarta</span>
-            <span class="chev">▾</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="titleblock">
-        <div class="title">REGION MONITOR</div>
-        <div class="subtitle" id="regionLabel">JAKARTA</div>
-      </div>
-
-      <div class="right">
-        <div class="clock" id="clock">--:--:--</div>
-        <div class="status">
-          <span class="status-dot" id="statusDot" data-ok="1"></span>
-          <span class="status-text" id="statusText">Data OK</span>
-        </div>
-      </div>
-    </header>
-
-    <section class="grid">
-      <!-- RISK CARD -->
-      <article class="card card-risk">
-        <div class="card-head">
-          <div class="kicker">LIVE ANALYSIS · ENVIRONMENTAL RISK LEVEL</div>
-        </div>
-
-        <div class="risk-row">
-          <span class="chip" id="riskChip" data-level="AMAN">
-            <span class="chip-dot"></span>
-            <span id="riskLevelLabel">AMAN</span>
-          </span>
-          <div class="mini-chips">
-            <span class="pill" title="Hujan 1 jam terakhir">1H: <b id="r1">--</b> mm</span>
-            <span class="pill" title="Akumulasi hujan 3 jam">3H: <b id="r3">--</b> mm</span>
-            <span class="pill" title="Akumulasi hujan 24 jam">24H: <b id="r24">--</b> mm</span>
+      <header class="hero">
+        <div class="brand">
+          <div class="dot"></div>
+          <div>
+            <div class="brand-top">
+              <span class="brand-name">GEOAI</span>
+            </div>
+            <div class="brand-sub">INDONESIA · JABODETABEK REGION</div>
           </div>
         </div>
 
-        <h2 class="risk-title" id="riskMainText">AMAN: KONDISI RELATIF NORMAL</h2>
-        <p class="risk-desc">
-          Model rule-based eksperimen · bisa diganti AI/ML kalau dataset historis & validasi sudah siap.
-        </p>
+        <div class="hero-right">
+          <button class="pill btn" id="regionBtn" aria-haspopup="dialog" aria-controls="sheet">
+            <span id="regionLabel">Jakarta</span>
+            <span class="chev">▾</span>
+          </button>
+        </div>
 
-        <div class="conf">
-          <div class="conf-top">
-            <span>Confidence</span>
-            <span class="mono" id="confValue">0%</span>
+        <h1 class="title">REGION MONITOR</h1>
+        <div class="subtitle">
+          <span id="cityLabel">JAKARTA</span>
+        </div>
+
+        <div class="meta">
+          <div class="clock" id="clock">--:--:--</div>
+          <div class="status">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">Booting…</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- RISK CARD -->
+      <section class="card risk">
+        <div class="card-hdr">
+          <div class="kicker">LIVE ANALYSIS · ENVIRONMENTAL RISK LEVEL</div>
+          <div class="badge" id="riskBadge">—</div>
+        </div>
+
+        <div class="chips">
+          <div class="chip"><span class="chip-k">1H</span><span class="chip-v" id="chip1h">--</span></div>
+          <div class="chip"><span class="chip-k">3H</span><span class="chip-v" id="chip3h">--</span></div>
+          <div class="chip"><span class="chip-k">24H</span><span class="chip-v" id="chip24h">--</span></div>
+        </div>
+
+        <h2 class="risk-title" id="riskTitle">—</h2>
+        <p class="risk-desc" id="riskDesc">—</p>
+
+        <div class="confidence">
+          <div class="conf-row">
+            <span class="muted">Confidence</span>
+            <span class="conf-val" id="confVal">--%</span>
           </div>
           <div class="bar">
             <div class="bar-fill" id="confBar" style="width:0%"></div>
@@ -75,60 +72,76 @@
         </div>
 
         <div class="why">
-          <div class="why-title">Why this status?</div>
-          <ul class="why-list" id="reasonsBox"></ul>
+          <div class="why-title">WHY THIS STATUS?</div>
+          <div class="why-box" id="whyBox">—</div>
         </div>
-      </article>
 
-      <!-- TEMP -->
-      <article class="card">
-        <div class="kicker">TEMPERATURE</div>
-        <div class="metric">
-          <div class="metric-value"><span id="tempVal">--</span><span class="unit">°C</span></div>
-          <div class="metric-sub">Near-surface air temperature</div>
-          <div class="metric-time">Updated · <span class="mono" id="timeTemp">--</span></div>
+        <details class="details" id="detailsBox">
+          <summary>Details (data per indikator)</summary>
+          <div class="details-grid">
+            <div class="details-item"><span>POP</span><b id="dPop">--%</b></div>
+            <div class="details-item"><span>Gust</span><b id="dGust">-- km/jam</b></div>
+            <div class="details-item"><span>Soil</span><b id="dSoil">--%</b></div>
+            <div class="details-item"><span>Updated</span><b id="dTime">--</b></div>
+          </div>
+        </details>
+      </section>
+
+      <!-- METRICS GRID -->
+      <section class="grid">
+        <div class="card metric">
+          <div class="kicker">TEMPERATURE</div>
+          <div class="metric-val"><span id="tempVal">--</span><span class="unit">°C</span></div>
+          <div class="muted" id="tempUpd">Updated · --</div>
         </div>
-      </article>
 
-      <!-- RAIN -->
-      <article class="card">
-        <div class="kicker">PRECIPITATION</div>
-        <div class="metric">
-          <div class="metric-value"><span id="precipVal">--</span><span class="unit"> mm</span></div>
-          <div class="metric-sub">Rain (last 1 hour)</div>
-          <div class="metric-time">Updated · <span class="mono" id="timeRain">--</span></div>
+        <div class="card metric">
+          <div class="kicker">PRECIPITATION</div>
+          <div class="metric-val"><span id="rainVal">--</span><span class="unit">mm</span></div>
+          <div class="muted" id="rainUpd">Rain (last 1 hour) · --</div>
         </div>
-      </article>
 
-      <!-- SOIL -->
-      <article class="card">
-        <div class="kicker">SOIL MOISTURE</div>
-        <div class="metric">
-          <div class="metric-value"><span id="soilVal">--</span><span class="unit">%</span></div>
-          <div class="metric-sub">VWC (0–1 cm) scaled to %</div>
-          <div class="metric-time">Updated · <span class="mono" id="timeSoil">--</span></div>
+        <div class="card metric">
+          <div class="kicker">SOIL MOISTURE</div>
+          <div class="metric-val"><span id="soilVal">--</span><span class="unit">%</span></div>
+          <div class="muted" id="soilUpd">VWC (0–1 cm) scaled to % · --</div>
         </div>
-      </article>
-    </section>
 
-    <footer class="footer">
-      <div class="foot-left">
-        <div class="muted">
-          Data: Open-Meteo hourly precipitation & soil moisture. UI: static GitHub Pages.
+        <div class="card metric">
+          <div class="kicker">RAIN PROBABILITY</div>
+          <div class="metric-val"><span id="popVal">--</span><span class="unit">%</span></div>
+          <div class="muted" id="popUpd">Probability (hourly) · --</div>
         </div>
-      </div>
-      <div class="badge">AUTO REFRESH · 30s</div>
-    </footer>
 
-    <!-- Bottom sheet region picker -->
-    <div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
-    <section class="sheet" id="regionSheet" hidden role="dialog" aria-modal="true" aria-label="Select region">
-      <div class="sheet-handle"></div>
-      <div class="sheet-title">Pilih wilayah</div>
-      <div class="sheet-list" id="regionList"></div>
-      <button class="sheet-close" id="sheetClose" type="button">Tutup</button>
+        <div class="card metric">
+          <div class="kicker">WIND GUST</div>
+          <div class="metric-val"><span id="gustVal">--</span><span class="unit">km/jam</span></div>
+          <div class="muted" id="gustUpd">Gusts (hourly) · --</div>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <div class="foot-left">
+          Data: Open-Meteo hourly precipitation & soil moisture & POP & gust.
+          UI: static GitHub Pages.
+        </div>
+        <div class="foot-right">
+          <div class="pill">AUTO REFRESH · <span id="refreshSec">30</span>S</div>
+        </div>
+      </footer>
+
     </section>
   </main>
+
+  <!-- bottom sheet -->
+  <div class="backdrop" id="sheetBackdrop" hidden></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Pilih Wilayah" hidden>
+    <div class="sheet-hdr">
+      <div class="sheet-title">Pilih Wilayah</div>
+      <button class="sheet-close" id="sheetClose" aria-label="Close">✕</button>
+    </div>
+    <div class="sheet-body" id="regionList"></div>
+  </div>
 
   <script type="module" src="./assets/js/app.js"></script>
 </body>

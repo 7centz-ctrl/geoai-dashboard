@@ -1,86 +1,124 @@
-import { escapeHtml, isoToHHMM } from "./utils.js";
+function q(id){ return document.getElementById(id); }
 
 export function bindUI(){
-  const el = {
-    regionBtn: document.getElementById("regionBtn"),
-    regionPill: document.getElementById("regionPill"),
-    regionLabel: document.getElementById("regionLabel"),
-    clock: document.getElementById("clock"),
+  return {
+    clock: q("clock"),
+    regionBtn: q("regionBtn"),
+    regionLabel: q("regionLabel"),
+    cityLabel: q("cityLabel"),
 
-    statusDot: document.getElementById("statusDot"),
-    statusText: document.getElementById("statusText"),
+    statusDot: q("statusDot"),
+    statusText: q("statusText"),
 
-    riskChip: document.getElementById("riskChip"),
-    riskLevelLabel: document.getElementById("riskLevelLabel"),
-    riskMainText: document.getElementById("riskMainText"),
-    confValue: document.getElementById("confValue"),
-    confBar: document.getElementById("confBar"),
+    riskBadge: q("riskBadge"),
+    chip1h: q("chip1h"),
+    chip3h: q("chip3h"),
+    chip24h: q("chip24h"),
 
-    r1: document.getElementById("r1"),
-    r3: document.getElementById("r3"),
-    r24: document.getElementById("r24"),
+    riskTitle: q("riskTitle"),
+    riskDesc: q("riskDesc"),
+    whyBox: q("whyBox"),
 
-    tempVal: document.getElementById("tempVal"),
-    precipVal: document.getElementById("precipVal"),
-    soilVal: document.getElementById("soilVal"),
+    confVal: q("confVal"),
+    confBar: q("confBar"),
 
-    timeTemp: document.getElementById("timeTemp"),
-    timeRain: document.getElementById("timeRain"),
-    timeSoil: document.getElementById("timeSoil"),
+    tempVal: q("tempVal"),
+    tempUpd: q("tempUpd"),
+    rainVal: q("rainVal"),
+    rainUpd: q("rainUpd"),
+    soilVal: q("soilVal"),
+    soilUpd: q("soilUpd"),
+    popVal: q("popVal"),
+    popUpd: q("popUpd"),
+    gustVal: q("gustVal"),
+    gustUpd: q("gustUpd"),
 
-    reasonsBox: document.getElementById("reasonsBox"),
+    dPop: q("dPop"),
+    dGust: q("dGust"),
+    dSoil: q("dSoil"),
+    dTime: q("dTime"),
 
-    sheet: document.getElementById("regionSheet"),
-    sheetBackdrop: document.getElementById("sheetBackdrop"),
-    regionList: document.getElementById("regionList"),
-    sheetClose: document.getElementById("sheetClose"),
+    refreshSec: q("refreshSec"),
+
+    sheetBackdrop: q("sheetBackdrop"),
+    sheet: q("sheet"),
+    sheetClose: q("sheetClose"),
+    regionList: q("regionList"),
   };
-
-  return el;
 }
 
 export function setStatus(ui, ok, text){
-  ui.statusDot.dataset.ok = ok ? "1" : "0";
+  ui.statusDot.className = "status-dot " + (ok ? "ok" : "bad");
   ui.statusText.textContent = text;
 }
 
 export function setRegion(ui, label){
-  ui.regionPill.textContent = label;
-  ui.regionLabel.textContent = label.toUpperCase();
+  ui.regionLabel.textContent = label;
+  ui.cityLabel.textContent = String(label).toUpperCase();
 }
 
-export function renderRisk(ui, r){
-  ui.riskChip.dataset.level = r.level;
-  ui.riskLevelLabel.textContent = r.level;
-  ui.riskMainText.textContent = r.label.toUpperCase();
-
-  ui.r1.textContent = r.rain1h.toFixed(1);
-  ui.r3.textContent = r.rain3h.toFixed(1);
-  ui.r24.textContent = r.rain24h.toFixed(1);
-
-  const pct = Math.round(r.confidence * 100);
-  ui.confValue.textContent = `${pct}%`;
-  ui.confBar.style.width = `${pct}%`;
-
-  if (!r.reasons.length) {
-    ui.reasonsBox.innerHTML = `<li>Tidak ada sinyal kuat (normal)</li>`;
-  } else {
-    ui.reasonsBox.innerHTML = r.reasons.map(x => `<li>${escapeHtml(x)}</li>`).join("");
-  }
+function levelToBadge(level){
+  const m = {
+    AMAN:   { cls:"safe",   t:"AMAN" },
+    WASPADA:{ cls:"watch",  t:"WASPADA" },
+    SIAGA:  { cls:"warn",   t:"SIAGA" },
+    DARURAT:{ cls:"danger", t:"DARURAT" },
+  };
+  return m[level] || { cls:"neutral", t:level || "—" };
 }
 
-export function renderMetrics(ui, r){
-  ui.tempVal.textContent = r.tempC.toFixed(1);
-  ui.precipVal.textContent = r.rain1h.toFixed(1);
-  ui.soilVal.textContent = r.soilPct.toFixed(0);
+export function renderRisk(ui, risk){
+  const b = levelToBadge(risk.level);
+  ui.riskBadge.className = "badge " + b.cls;
+  ui.riskBadge.textContent = b.t;
 
-  const t = isoToHHMM(r.timeIso);
-  ui.timeTemp.textContent = t;
-  ui.timeRain.textContent = t;
-  ui.timeSoil.textContent = t;
+  ui.chip1h.textContent = `${risk.rain1h.toFixed(1)} mm`;
+  ui.chip3h.textContent = `${risk.rain3h.toFixed(1)} mm`;
+  ui.chip24h.textContent = `${risk.rain24h.toFixed(1)} mm`;
+
+  ui.riskTitle.textContent = risk.label;
+  ui.riskDesc.textContent = "Model rule-based eksperimen · bisa diganti AI/ML kalau dataset historis & validasi sudah siap.";
+
+  const confPct = Math.round((risk.confidence || 0) * 100);
+  ui.confVal.textContent = `${confPct}%`;
+  ui.confBar.style.width = `${confPct}%`;
+
+  ui.whyBox.textContent = (risk.reasons && risk.reasons.length)
+    ? risk.reasons.join(" • ")
+    : "Tidak ada sinyal kuat (normal)";
+
+  ui.dPop.textContent = `${Math.round(risk.popPct)}%`;
+  ui.dGust.textContent = `${Math.round(risk.gustKmh)} km/jam`;
+  ui.dSoil.textContent = `${Math.round(risk.soilPct)}%`;
+  ui.dTime.textContent = (risk.timeIso || "--").replace("T"," ").slice(0,16);
 }
 
-/* Bottom sheet helpers */
+export function renderMetrics(ui, risk){
+  ui.tempVal.textContent = risk.tempC.toFixed(1);
+  ui.rainVal.textContent = risk.rain1h.toFixed(1);
+  ui.soilVal.textContent = `${Math.round(risk.soilPct)}`;
+  ui.popVal.textContent  = `${Math.round(risk.popPct)}`;
+  ui.gustVal.textContent = `${Math.round(risk.gustKmh)}`;
+
+  const upd = (risk.timeIso || "--").replace("T"," ").slice(11,16);
+  ui.tempUpd.textContent = `Updated · ${upd}`;
+  ui.rainUpd.textContent = `Rain (last 1 hour) · ${upd}`;
+  ui.soilUpd.textContent = `VWC (0–1 cm) scaled to % · ${upd}`;
+  ui.popUpd.textContent  = `Probability (hourly) · ${upd}`;
+  ui.gustUpd.textContent = `Gusts (hourly) · ${upd}`;
+}
+
+export function renderRegionList(ui, regions, activeId, onPick){
+  ui.regionList.innerHTML = "";
+  regions.forEach(r => {
+    const btn = document.createElement("button");
+    btn.className = "region-row" + (r.id === activeId ? " active" : "");
+    btn.innerHTML = `<span>${r.label}</span><span class="radio"></span>`;
+    btn.addEventListener("click", () => onPick(r.id));
+    ui.regionList.appendChild(btn);
+  });
+}
+
 export function openSheet(ui){
   ui.sheetBackdrop.hidden = false;
   ui.sheet.hidden = false;
@@ -88,23 +126,4 @@ export function openSheet(ui){
 export function closeSheet(ui){
   ui.sheetBackdrop.hidden = true;
   ui.sheet.hidden = true;
-}
-
-export function renderRegionList(ui, regions, activeId, onPick){
-  ui.regionList.innerHTML = regions.map(r => {
-    const active = r.id === activeId ? 'data-active="1"' : 'data-active="0"';
-    return `
-      <div class="sheet-item" ${active} data-id="${escapeHtml(r.id)}">
-        <div>
-          <div style="font-weight:800">${escapeHtml(r.label)}</div>
-          <div style="font-size:12px;color:rgba(154,164,178,.85)">${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}</div>
-        </div>
-        <div class="radio" aria-hidden="true"></div>
-      </div>
-    `;
-  }).join("");
-
-  ui.regionList.querySelectorAll(".sheet-item").forEach(node => {
-    node.addEventListener("click", () => onPick(node.getAttribute("data-id")));
-  });
 }

@@ -27,7 +27,8 @@ export function computeRisk({ tempC, rain1h, rain3h, rain24h, soilPct, popPct, g
   if (soilPct >= 55 && rain3h >= 10){ score += 0.8; reasons.push(`Kombinasi tanah jenuh + hujan`); }
 
   // Dry lowers
-  if (rain24h < 5 && soilPct < 35 && popPct < 40) {
+  const veryDry = (rain24h < 5 && soilPct < 35 && popPct < 40);
+  if (veryDry) {
     score -= 1.5;
     reasons.push(`Kondisi relatif kering`);
   }
@@ -47,9 +48,26 @@ export function computeRisk({ tempC, rain1h, rain3h, rain24h, soilPct, popPct, g
     label = "DARURAT: potensi ekstrem, siapkan mitigasi";
   }
 
-  // Confidence: makin banyak sinyal + makin besar score -> makin tinggi
-  const signal = clamp(reasons.length, 0, 8);
-  const confidence = clamp(0.55 + (signal * 0.05) + (Math.max(0, score) * 0.03), 0.50, 0.98);
+  /**
+   * Confidence lebih “jujur”:
+   * - sumber model ini bukan sensor lapangan, jadi jangan pura-pura 90% saat kering.
+   * - kalau pop tinggi / ada hujan nyata / tanah jenuh, confidence naik.
+   */
+  const signalCount = clamp(reasons.length, 0, 8);
+  const rainSignal = clamp((rain3h / 30) + (rain24h / 120), 0, 2);   // 0..2
+  const popSignal  = clamp(popPct / 100, 0, 1);                     // 0..1
+  const soilSignal = clamp((soilPct - 30) / 50, 0, 1);              // 0..1
+
+  let confidence =
+    0.38 +
+    (signalCount * 0.045) +
+    (rainSignal * 0.12) +
+    (popSignal  * 0.10) +
+    (soilSignal * 0.10);
+
+  if (veryDry) confidence -= 0.08;
+
+  confidence = clamp(confidence, 0.35, 0.92);
 
   return {
     timeIso,
@@ -60,7 +78,7 @@ export function computeRisk({ tempC, rain1h, rain3h, rain24h, soilPct, popPct, g
     gustKmh,
     level,
     label,
-    reasons: reasons.slice(0, 5),
+    reasons: reasons.slice(0, 6),
     confidence,
   };
 }
