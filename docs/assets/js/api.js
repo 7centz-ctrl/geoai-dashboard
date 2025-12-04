@@ -1,17 +1,22 @@
-export function buildOpenMeteoUrl({ lat, lon }) {
-  const params = new URLSearchParams({
-    latitude: lat,
-    longitude: lon,
-    current: "temperature_2m,precipitation",
-    hourly: "soil_moisture_0_to_1cm",
+import { PROVIDER } from "./config.js";
+
+function openMeteoUrl({ lat, lon }){
+  const qs = new URLSearchParams({
+    latitude: String(lat),
+    longitude: String(lon),
     timezone: "auto",
+    current: "temperature_2m",
+    hourly: "precipitation,soil_moisture_0_to_1cm",
   });
-  return "https://api.open-meteo.com/v1/forecast?" + params.toString();
+  return `https://api.open-meteo.com/v1/forecast?${qs.toString()}`;
 }
 
-export async function fetchOpenMeteo(region) {
-  const url = buildOpenMeteoUrl(region);
+export async function fetchWeather(region){
+  if (PROVIDER !== "open-meteo") {
+    throw new Error("Provider not supported in GitHub Pages mode");
+  }
+  const url = openMeteoUrl(region);
   const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Open-Meteo HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }

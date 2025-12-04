@@ -1,74 +1,121 @@
 import { REGIONS, REFRESH_MS } from "./config.js";
-import { pad, clamp } from "./utils.js";
-import { fetchOpenMeteo } from "./api.js";
+import { clamp, clockHHMMSS } from "./utils.js";
+import { fetchWeather } from "./api.js";
 import { computeRisk } from "./risk.js";
-import { getUI, renderRegion, renderMetrics, renderRisk } from "./ui.js";
+import {
+  bindUI, setStatus, setRegion,
+  renderRisk, renderMetrics,
+  openSheet, closeSheet, renderRegionList
+} from "./ui.js";
 
-function startClock(ui) {
-  const tick = () => {
-    const now = new Date();
-    ui.clock.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-  };
+function findNearestIndex(timesIso){
+  const now = Date.now();
+  let best = 0;
+  for (let i = 0; i < timesIso.length; i++){
+    const t = Date.parse(timesIso[i]);
+    if (!Number.isNaN(t) && t <= now) best = i;
+  }
+  return best;
+}
+
+function sumLastN(arr, endIdx, n){
+  let s = 0;
+  const start = Math.max(0, endIdx - n + 1);
+  for (let i = start; i <= endIdx; i++){
+    const v = Number(arr[i]);
+    if (!Number.isNaN(v)) s += v;
+  }
+  return s;
+}
+
+function extractOpenMeteo(raw){
+  const cur = raw.current || {};
+  const hourly = raw.hourly || {};
+
+  const times = hourly.time || [];
+  const precip = hourly.precipitation || [];
+  const soil = hourly.soil_moisture_0_to_1cm || [];
+
+  if (!times.length || precip.length !== times.length || soil.length !== times.length){
+    throw new Error("Hourly arrays missing/mismatch (time/precip/soil)");
+  }
+
+  const idx = findNearestIndex(times);
+
+  const tempC = Number(cur.temperature_2m);
+  const safeTemp = Number.isNaN(tempC) ? 0 : tempC;
+
+  const rain1h = clamp(Number(precip[idx]) || 0, 0, 500);
+  const rain3h = clamp(sumLastN(precip, idx, 3), 0, 1500);
+  const rain24h = clamp(sumLastN(precip, idx, 24), 0, 5000);
+
+  const soilVwc = Number(soil[idx]);
+  const soilPct = clamp((Number.isNaN(soilVwc) ? 0 : soilVwc) * 100, 0, 100);
+
+  const timeIso = times[idx] || cur.time || new Date().toISOString();
+  return { tempC: safeTemp, rain1h, rain3h, rain24h, soilPct, timeIso };
+}
+
+function startClock(ui){
+  const tick = () => ui.clock.textContent = clockHHMMSS();
   tick();
   setInterval(tick, 1000);
 }
 
-function extractMetrics(raw) {
-  const current = raw.current || {};
+async function runOnce(ui, state){
+  const region = REGIONS.find(r => r.id === state.activeId) || REGIONS[0];
+  setRegion(ui, region.label);
 
-  let tempC = Number(current.temperature_2m);
-  let precipMmH = Number(current.precipitation ?? 0);
+  setStatus(ui, true, "Fetching…");
+  const raw = await fetchWeather(region);
+  const m = extractOpenMeteo(raw);
 
-  if (Number.isNaN(tempC)) tempC = 0;
-  if (Number.isNaN(precipMmH)) precipMmH = 0;
+  const risk = computeRisk({
+    tempC: m.tempC,
+    rain1h: m.rain1h,
+    rain3h: m.rain3h,
+    rain24h: m.rain24h,
+    soilPct: m.soilPct,
+    timeIso: m.timeIso,
+  });
 
-  // Soil moisture hourly -> soilPct heuristic
-  let soilPct = null;
-  const arr = raw?.hourly?.soil_moisture_0_to_1cm;
-  if (Array.isArray(arr) && arr.length) {
-    const last = Number(arr[arr.length - 1]);
-    if (!Number.isNaN(last)) soilPct = last * 200; // heuristic scale
-  }
-
-  if (soilPct === null || Number.isNaN(soilPct)) {
-    soilPct = 35 + precipMmH * 3; // fallback
-  }
-
-  soilPct = clamp(soilPct, 0, 100);
-
-  const timestampIso = current.time || new Date().toISOString();
-  return { tempC, precipMmH, soilPct, timestampIso };
+  renderRisk(ui, risk);
+  renderMetrics(ui, risk);
+  setStatus(ui, true, "Data OK");
 }
 
-async function update(ui) {
-  const key = ui.regionSelect.value;
-  const region = REGIONS[key];
+function main(){
+  const ui = bindUI();
+  const state = { activeId: "jakarta" };
 
-  renderRegion(ui, region.label);
-
-  const raw = await fetchOpenMeteo(region);
-  const { tempC, precipMmH, soilPct, timestampIso } = extractMetrics(raw);
-
-  const data = computeRisk({ tempC, precipMmH, soilPct, timestampIso });
-
-  renderMetrics(ui, data);
-  renderRisk(ui, data);
-}
-
-function main() {
-  const ui = getUI();
   startClock(ui);
 
-  // initial render
-  update(ui).catch(console.error);
-
-  // refresh loop
-  setInterval(() => update(ui).catch(console.error), REFRESH_MS);
-
-  // on region change
-  ui.regionSelect.addEventListener("change", () => {
-    update(ui).catch(console.error);
+  // Sheet events
+  ui.regionBtn.addEventListener("click", () => {
+    renderRegionList(ui, REGIONS, state.activeId, (pickedId) => {
+      state.activeId = pickedId;
+      closeSheet(ui);
+      runOnce(ui, state).catch(err => {
+        console.error(err);
+        setStatus(ui, false, "API / Data error");
+      });
+    });
+    openSheet(ui);
   });
+  ui.sheetClose.addEventListener("click", () => closeSheet(ui));
+  ui.sheetBackdrop.addEventListener("click", () => closeSheet(ui));
+
+  // first load + interval
+  runOnce(ui, state).catch(err => {
+    console.error(err);
+    setStatus(ui, false, "API / Data error");
+  });
+  setInterval(() => {
+    runOnce(ui, state).catch(err => {
+      console.error(err);
+      setStatus(ui, false, "API / Data error");
+    });
+  }, REFRESH_MS);
 }
 
 main();

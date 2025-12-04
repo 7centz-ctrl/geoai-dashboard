@@ -1,92 +1,134 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <title>GEOAI | Jabodetabek Region Monitor</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>GEOAI · Jabodetabek Region Monitor</title>
+  <meta name="theme-color" content="#050814" />
   <link rel="stylesheet" href="./assets/css/style.css" />
 </head>
 <body>
-  <div class="app">
-    <header>
-      <div>
-        <div class="logo">
-          <div class="logo-dot"></div>
-          GEOAI
+  <main class="app" id="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-row">
+          <span class="dot"></span>
+          <span class="brand-name">GEOAI</span>
         </div>
-        <div class="region-sub">
-          INDONESIA · JABODETABEK REGION
-          <span class="region-pill">
-            <select id="regionSelect">
-              <option value="jakarta">Jakarta</option>
-              <option value="bogor">Bogor</option>
-              <option value="depok">Depok</option>
-              <option value="tangerang">Tangerang</option>
-              <option value="bekasi">Bekasi</option>
-            </select>
-          </span>
+
+        <div class="subrow">
+          <span class="muted">INDONESIA · JABODETABEK REGION</span>
+
+          <button class="region-btn" id="regionBtn" type="button" aria-haspopup="dialog" aria-controls="regionSheet">
+            <span id="regionPill">Jakarta</span>
+            <span class="chev">▾</span>
+          </button>
         </div>
       </div>
-      <div class="region-title">
-        REGION MONITOR
-        <div class="region-active" id="regionLabel">Jakarta</div>
+
+      <div class="titleblock">
+        <div class="title">REGION MONITOR</div>
+        <div class="subtitle" id="regionLabel">JAKARTA</div>
       </div>
-      <div class="clock" id="clock">--:--:--</div>
+
+      <div class="right">
+        <div class="clock" id="clock">--:--:--</div>
+        <div class="status">
+          <span class="status-dot" id="statusDot" data-ok="1"></span>
+          <span class="status-text" id="statusText">Data OK</span>
+        </div>
+      </div>
     </header>
 
-    <div class="grid">
-      <div class="card">
-        <div class="card-title">Live Analysis · Environmental Risk Level</div>
-        <div class="risk-chip" id="riskChip" data-level="AMAN">
-          <div class="risk-dot"></div>
-          <span id="riskLevelLabel">AMAN</span>
+    <section class="grid">
+      <!-- RISK CARD -->
+      <article class="card card-risk">
+        <div class="card-head">
+          <div class="kicker">LIVE ANALYSIS · ENVIRONMENTAL RISK LEVEL</div>
         </div>
-        <div class="risk-main-label" id="riskMainText">
-          AMAN: KONDISI RELATIF NORMAL
-        </div>
-        <div class="risk-sub-label">
-          Model rule-based eksperimen · akan diganti model AI/ML ketika dataset historis siap.
-        </div>
-        <div class="confidence-bar">
-          AI Confidence <span id="confValue">0%</span>
-          <div class="confidence-track">
-            <div class="confidence-fill" id="confBar"></div>
+
+        <div class="risk-row">
+          <span class="chip" id="riskChip" data-level="AMAN">
+            <span class="chip-dot"></span>
+            <span id="riskLevelLabel">AMAN</span>
+          </span>
+          <div class="mini-chips">
+            <span class="pill" title="Hujan 1 jam terakhir">1H: <b id="r1">--</b> mm</span>
+            <span class="pill" title="Akumulasi hujan 3 jam">3H: <b id="r3">--</b> mm</span>
+            <span class="pill" title="Akumulasi hujan 24 jam">24H: <b id="r24">--</b> mm</span>
           </div>
         </div>
-      </div>
 
-      <div class="card">
-        <div class="card-title">Temperature</div>
-        <div class="metric-value"><span id="tempVal">--</span>°C</div>
-        <div class="metric-unit">Near-surface air temperature</div>
-        <div class="metric-extra">Updated · <span id="tempTime">--</span></div>
-      </div>
+        <h2 class="risk-title" id="riskMainText">AMAN: KONDISI RELATIF NORMAL</h2>
+        <p class="risk-desc">
+          Model rule-based eksperimen · bisa diganti AI/ML kalau dataset historis & validasi sudah siap.
+        </p>
 
-      <div class="card">
-        <div class="card-title">Precipitation</div>
-        <div class="metric-value"><span id="precipVal">--</span> mm/h</div>
-        <div class="metric-unit">Rainfall intensity per hour</div>
-        <div class="metric-extra">Updated · <span id="precipTime">--</span></div>
-      </div>
+        <div class="conf">
+          <div class="conf-top">
+            <span>Confidence</span>
+            <span class="mono" id="confValue">0%</span>
+          </div>
+          <div class="bar">
+            <div class="bar-fill" id="confBar" style="width:0%"></div>
+          </div>
+        </div>
 
-      <div class="card">
-        <div class="card-title">Soil Saturation</div>
-        <div class="metric-value"><span id="soilVal">--</span>%</div>
-        <div class="metric-unit">Estimated saturation threshold</div>
-        <div class="metric-extra">Updated · <span id="soilTime">--</span></div>
-      </div>
-    </div>
+        <div class="why">
+          <div class="why-title">Why this status?</div>
+          <ul class="why-list" id="reasonsBox"></ul>
+        </div>
+      </article>
 
-    <div class="footer">
-      <div>
-        Data source: Open-Meteo (cuaca) · model risiko rule-based eksperimen banjir &amp; longsor.
-        <br />
-        Built by
-        <a href="https://github.com/7centz-ctrl" target="_blank" rel="noopener">7CENTZ</a>
+      <!-- TEMP -->
+      <article class="card">
+        <div class="kicker">TEMPERATURE</div>
+        <div class="metric">
+          <div class="metric-value"><span id="tempVal">--</span><span class="unit">°C</span></div>
+          <div class="metric-sub">Near-surface air temperature</div>
+          <div class="metric-time">Updated · <span class="mono" id="timeTemp">--</span></div>
+        </div>
+      </article>
+
+      <!-- RAIN -->
+      <article class="card">
+        <div class="kicker">PRECIPITATION</div>
+        <div class="metric">
+          <div class="metric-value"><span id="precipVal">--</span><span class="unit"> mm</span></div>
+          <div class="metric-sub">Rain (last 1 hour)</div>
+          <div class="metric-time">Updated · <span class="mono" id="timeRain">--</span></div>
+        </div>
+      </article>
+
+      <!-- SOIL -->
+      <article class="card">
+        <div class="kicker">SOIL MOISTURE</div>
+        <div class="metric">
+          <div class="metric-value"><span id="soilVal">--</span><span class="unit">%</span></div>
+          <div class="metric-sub">VWC (0–1 cm) scaled to %</div>
+          <div class="metric-time">Updated · <span class="mono" id="timeSoil">--</span></div>
+        </div>
+      </article>
+    </section>
+
+    <footer class="footer">
+      <div class="foot-left">
+        <div class="muted">
+          Data: Open-Meteo hourly precipitation & soil moisture. UI: static GitHub Pages.
+        </div>
       </div>
       <div class="badge">AUTO REFRESH · 30s</div>
-    </div>
-  </div>
+    </footer>
+
+    <!-- Bottom sheet region picker -->
+    <div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
+    <section class="sheet" id="regionSheet" hidden role="dialog" aria-modal="true" aria-label="Select region">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">Pilih wilayah</div>
+      <div class="sheet-list" id="regionList"></div>
+      <button class="sheet-close" id="sheetClose" type="button">Tutup</button>
+    </section>
+  </main>
 
   <script type="module" src="./assets/js/app.js"></script>
 </body>
