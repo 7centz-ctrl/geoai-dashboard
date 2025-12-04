@@ -6,17 +6,22 @@ function openMeteoUrl({ lat, lon }){
     longitude: String(lon),
     timezone: "auto",
 
-    // current buat UI
-    current: "temperature_2m",
-
-    // hourly buat akurasi
-    hourly: [
+    // current: biar ada "NOW" (lebih terasa realtime)
+    current: [
+      "temperature_2m",
       "precipitation",
       "rain",
       "showers",
+      "wind_gusts_10m",
+    ].join(","),
+
+    // hourly: buat agregasi per jam (jujur & stabil)
+    hourly: [
+      "precipitation",
       "precipitation_probability",
       "soil_moisture_0_to_1cm",
       "wind_gusts_10m",
+      "temperature_2m",
     ].join(","),
   });
 
@@ -31,13 +36,12 @@ async function fetchOnePoint(pt){
 }
 
 /**
- * Region sekarang punya multiple points.
- * Kita fetch semuanya paralel (gratis) lalu agregasi.
+ * Region multi-point:
+ * - fetch paralel (gratis)
+ * - nanti di app.js kita ambil worst-point (lebih aman untuk warning)
  */
 export async function fetchWeather(region){
-  if (PROVIDER !== "open-meteo") {
-    throw new Error("Provider not supported in GitHub Pages mode");
-  }
+  if (PROVIDER !== "open-meteo") throw new Error("Provider not supported");
   const points = region.points || [];
   if (!points.length) throw new Error("Region points empty");
   return Promise.all(points.map(fetchOnePoint));
