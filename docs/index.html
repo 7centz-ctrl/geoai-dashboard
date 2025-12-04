@@ -381,12 +381,14 @@
     function updateClock() {
       const el = document.getElementById("clock");
       const now = new Date();
-      el.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      el.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(
+        now.getSeconds()
+      )}`;
     }
     setInterval(updateClock, 1000);
     updateClock();
 
-    // Daftar wilayah Jawa Barat yang bisa dipilih
+    // ====== REGION DEFINITIONS (JAWA BARAT) ======
     const REGIONS = {
       bandung: {
         label: "Bandung Raya",
@@ -409,8 +411,9 @@
       const params = new URLSearchParams({
         latitude: region.lat,
         longitude: region.lon,
-        hourly: "temperature_2m,precipitation,soil_moisture_0_7cm",
-        forecast_hours: "1",
+        // current kondisi sekarang, hourly buat soil moisture
+        current: "temperature_2m,precipitation",
+        hourly: "soil_moisture_0_to_1cm",
         timezone: "auto",
       });
       return "https://api.open-meteo.com/v1/forecast?" + params.toString();
@@ -421,38 +424,60 @@
         const select = document.getElementById("regionSelect");
         const region = REGIONS[select.value];
 
+        // update label aktif
         document.getElementById("regionLabel").textContent = region.label;
 
         const apiUrl = buildUrl(region);
         const res = await fetch(apiUrl);
+
         if (!res.ok) {
           console.error("API error", res.status);
           return;
         }
+
         const raw = await res.json();
-        const hourly = raw.hourly;
-        const idx = hourly.time.length - 1;
 
-        const temp = Number(hourly.temperature_2m[idx]);
-        const precip = Number(hourly.precipitation[idx]);
-        let soilPct;
+        const current = raw.current || {};
+        let temp = Number(current.temperature_2m);
+        let precip = Number(
+          current.precipitation !== undefined ? current.precipitation : 0
+        );
 
-        if (hourly.soil_moisture_0_7cm) {
-          const rawSoil = Number(hourly.soil_moisture_0_7cm[idx]);
-          soilPct = rawSoil * 200; // mapping kasar m3/m3 -> %
-        } else {
-          soilPct = 40 + precip * 2;
+        if (Number.isNaN(temp)) temp = 0;
+        if (Number.isNaN(precip)) precip = 0;
+
+        // Soil moisture pakai hourly (0–1 cm), fallback ke fungsi precip
+        let soilPct = null;
+        if (
+          raw.hourly &&
+          raw.hourly.soil_moisture_0_to_1cm &&
+          raw.hourly.soil_moisture_0_to_1cm.length
+        ) {
+          const smArr = raw.hourly.soil_moisture_0_to_1cm;
+          const lastSoil = Number(smArr[smArr.length - 1]);
+          if (!Number.isNaN(lastSoil)) {
+            // Open-Meteo soil moisture satuannya m³/m³ → mapping kasar ke %
+            soilPct = lastSoil * 200;
+          }
         }
+
+        if (soilPct === null || Number.isNaN(soilPct)) {
+          // fallback heuristik dari curah hujan
+          soilPct = 35 + precip * 3;
+        }
+
         soilPct = Math.max(0, Math.min(100, soilPct));
 
-        const data = computeRisk(temp, precip, soilPct);
+        const timestamp = current.time || new Date().toISOString();
+
+        const data = computeRisk(temp, precip, soilPct, timestamp);
         updateUI(data);
       } catch (e) {
         console.error("Fetch error", e);
       }
     }
 
-    function computeRisk(temp, precip, soil) {
+    function computeRisk(temp, precip, soil, timestampIso) {
       let score = 0;
 
       // Curah hujan
@@ -487,10 +512,13 @@
         label = "DARURAT: risiko banjir besar & longsor";
       }
 
-      const ai_confidence = Math.max(0.5, Math.min(0.99, 0.55 + 0.05 * Math.abs(score)));
+      const ai_confidence = Math.max(
+        0.5,
+        Math.min(0.99, 0.55 + 0.05 * Math.abs(score))
+      );
 
       return {
-        timestamp: new Date().toISOString(),
+        timestamp: timestampIso,
         temperature_c: temp,
         precipitation_mm_per_h: precip,
         soil_saturation_pct: soil,
@@ -502,13 +530,18 @@
 
     function formatTime(iso) {
       const d = new Date(iso);
-      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(
+        d.getSeconds()
+      )}`;
     }
 
     function updateUI(data) {
-      document.getElementById("tempVal").textContent = data.temperature_c.toFixed(1);
-      document.getElementById("precipVal").textContent = data.precipitation_mm_per_h.toFixed(1);
-      document.getElementById("soilVal").textContent = data.soil_saturation_pct.toFixed(1);
+      document.getElementById("tempVal").textContent =
+        data.temperature_c.toFixed(1);
+      document.getElementById("precipVal").textContent =
+        data.precipitation_mm_per_h.toFixed(1);
+      document.getElementById("soilVal").textContent =
+        data.soil_saturation_pct.toFixed(1);
 
       const t = formatTime(data.timestamp);
       document.getElementById("tempTime").textContent = t;
@@ -542,3 +575,5 @@
   </script>
 </body>
 </html>
+    
+
