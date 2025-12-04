@@ -337,7 +337,7 @@
         </div>
       </div>
 
-      <!-- Temp -->
+      <!-- Temperature -->
       <div class="card">
         <div class="card-title">Temperature</div>
         <div class="metric-value"><span id="tempVal">--</span>°C</div>
@@ -359,6 +359,18 @@
         <div class="metric-value"><span id="soilVal">--</span>%</div>
         <div class="metric-unit">Estimated saturation threshold</div>
         <div class="metric-extra">Updated · <span id="soilTime">--</span></div>
+      </div>
+    </div>
+
+    <!-- 24h history card -->
+    <div class="card" style="margin-top: 8px;">
+      <div class="card-title">24h Climate Profile</div>
+      <div style="font-size: 11px; color: #9ca3af; margin-bottom: 8px;">
+        Temperatur (garis) dan curah hujan (batang) untuk 24 jam terakhir di wilayah terpilih.
+      </div>
+      <canvas id="historyChart" width="1000" height="150"></canvas>
+      <div style="font-size: 10px; color: #6b7280; margin-top: 4px;">
+        Skala suhu &amp; hujan dinormalisasi agar tren lebih mudah dibaca, bukan angka absolut.
       </div>
     </div>
 
@@ -388,6 +400,12 @@
     setInterval(updateClock, 1000);
     updateClock();
 
+    function formatTime(iso) {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return "--:--:--";
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
     // ====== REGION DEFINITIONS (JAWA BARAT) ======
     const REGIONS = {
       bandung: {
@@ -411,9 +429,9 @@
       const params = new URLSearchParams({
         latitude: region.lat,
         longitude: region.lon,
-        // current kondisi sekarang, hourly buat soil moisture
         current: "temperature_2m,precipitation",
-        hourly: "soil_moisture_0_to_1cm",
+        hourly: "temperature_2m,precipitation,soil_moisture_0_to_1cm",
+        past_hours: "24",
         timezone: "auto",
       });
       return "https://api.open-meteo.com/v1/forecast?" + params.toString();
@@ -456,7 +474,7 @@
           const smArr = raw.hourly.soil_moisture_0_to_1cm;
           const lastSoil = Number(smArr[smArr.length - 1]);
           if (!Number.isNaN(lastSoil)) {
-            // Open-Meteo soil moisture satuannya m³/m³ → mapping kasar ke %
+            // Open-Meteo soil moisture m³/m³ → mapping kasar ke %
             soilPct = lastSoil * 200;
           }
         }
@@ -472,6 +490,29 @@
 
         const data = computeRisk(temp, precip, soilPct, timestamp);
         updateUI(data);
+
+        // History 24 jam untuk grafik
+        if (
+          raw.hourly &&
+          raw.hourly.time &&
+          raw.hourly.temperature_2m &&
+          raw.hourly.precipitation
+        ) {
+          const times = raw.hourly.time;
+          const temps = raw.hourly.temperature_2m.map(Number);
+          const precs = raw.hourly.precipitation.map(Number);
+
+          const len = times.length;
+          const take = Math.min(24, len);
+          const start = len - take;
+
+          const history = {
+            times: times.slice(start),
+            temps: temps.slice(start),
+            precs: precs.slice(start),
+          };
+          drawHistoryChart(history);
+        }
       } catch (e) {
         console.error("Fetch error", e);
       }
@@ -528,22 +569,23 @@
       };
     }
 
-    function formatTime(iso) {
-      const d = new Date(iso);
-      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(
-        d.getSeconds()
-      )}`;
-    }
-
     function updateUI(data) {
-      document.getElementById("tempVal").textContent =
-        data.temperature_c.toFixed(1);
-      document.getElementById("precipVal").textContent =
-        data.precipitation_mm_per_h.toFixed(1);
-      document.getElementById("soilVal").textContent =
-        data.soil_saturation_pct.toFixed(1);
+      if (!data) return;
 
-      const t = formatTime(data.timestamp);
+      if (typeof data.temperature_c === "number") {
+        document.getElementById("tempVal").textContent =
+          data.temperature_c.toFixed(1);
+      }
+      if (typeof data.precipitation_mm_per_h === "number") {
+        document.getElementById("precipVal").textContent =
+          data.precipitation_mm_per_h.toFixed(1);
+      }
+      if (typeof data.soil_saturation_pct === "number") {
+        document.getElementById("soilVal").textContent =
+          data.soil_saturation_pct.toFixed(1);
+      }
+
+      const t = formatTime(data.timestamp || new Date().toISOString());
       document.getElementById("tempTime").textContent = t;
       document.getElementById("precipTime").textContent = t;
       document.getElementById("soilTime").textContent = t;
@@ -554,20 +596,129 @@
       const confValue = document.getElementById("confValue");
       const confBar = document.getElementById("confBar");
 
-      riskChip.dataset.level = data.risk_level;
-      riskLevelLabel.textContent = data.risk_level;
-      riskMainText.textContent = data.risk_label.toUpperCase();
+      if (data.risk_level) {
+        riskChip.dataset.level = data.risk_level;
+        riskLevelLabel.textContent = data.risk_level;
+      }
+      if (data.risk_label) {
+        riskMainText.textContent = data.risk_label.toUpperCase();
+      }
 
-      const confPercent = Math.round(data.ai_confidence * 100);
-      confValue.textContent = confPercent + "%";
-      confBar.style.width = confPercent + "%";
+      if (typeof data.ai_confidence === "number") {
+        const confPercent = Math.round(data.ai_confidence * 100);
+        confValue.textContent = confPercent + "%";
+        confBar.style.width = confPercent + "%";
+      }
+    }
+
+    function drawHistoryChart(history) {
+      const canvas = document.getElementById("historyChart");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const w = canvas.width;
+      const h = canvas.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const n = history.times.length;
+      if (!n) return;
+
+      const temps = history.temps;
+      const precs = history.precs;
+
+      let minT = Math.min(...temps);
+      let maxT = Math.max(...temps);
+      if (!isFinite(minT) || !isFinite(maxT)) {
+        minT = 0;
+        maxT = 1;
+      }
+      if (maxT === minT) {
+        maxT += 1;
+        minT -= 1;
+      }
+
+      let maxP = Math.max(...precs);
+      if (!isFinite(maxP) || maxP <= 0) {
+        maxP = 1;
+      }
+
+      const paddingLeft = 30;
+      const paddingRight = 10;
+      const paddingTop = 10;
+      const paddingBottom = 18;
+
+      const chartW = w - paddingLeft - paddingRight;
+      const chartH = h - paddingTop - paddingBottom;
+
+      ctx.fillStyle = "#020617";
+      ctx.fillRect(0, 0, w, h);
+
+      // Grid dasar
+      ctx.strokeStyle = "#111827";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(paddingLeft, paddingTop);
+      ctx.lineTo(paddingLeft, paddingTop + chartH);
+      ctx.lineTo(paddingLeft + chartW, paddingTop + chartH);
+      ctx.stroke();
+
+      // Batang curah hujan (bawah)
+      const barWidth = chartW / n;
+      ctx.fillStyle = "#1d4ed8"; // biru
+      for (let i = 0; i < n; i++) {
+        const p = precs[i];
+        if (p <= 0) continue;
+        const x = paddingLeft + i * barWidth;
+        const hP = (p / maxP) * (chartH * 0.5);
+        const y = paddingTop + chartH - hP;
+        ctx.fillRect(x, y, barWidth * 0.7, hP);
+      }
+
+      // Garis suhu (atas)
+      ctx.strokeStyle = "#f97316"; // oranye
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let i = 0; i < n; i++) {
+        const t = temps[i];
+        const norm = (t - minT) / (maxT - minT);
+        const x = paddingLeft + (i + 0.5) * barWidth;
+        const y = paddingTop + chartH * (1 - norm);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Label suhu min/max
+      ctx.fillStyle = "#6b7280";
+      ctx.font = "10px system-ui";
+      ctx.textAlign = "right";
+      ctx.fillText(maxT.toFixed(0) + "°C", paddingLeft - 4, paddingTop + 8);
+      ctx.fillText(minT.toFixed(0) + "°C", paddingLeft - 4, paddingTop + chartH);
+
+      // Label hujan max
+      ctx.textAlign = "left";
+      ctx.fillText(maxP.toFixed(1) + " mm/h", paddingLeft + chartW + 4, paddingTop + chartH / 2);
+
+      // Label waktu awal & akhir
+      const firstTime = new Date(history.times[0]);
+      const lastTime = new Date(history.times[n - 1]);
+      const fmt = (d) => pad(d.getHours()) + ":" + pad(d.getMinutes());
+
+      ctx.textAlign = "center";
+      ctx.fillText(fmt(firstTime), paddingLeft, paddingTop + chartH + 12);
+      ctx.fillText(
+        fmt(lastTime),
+        paddingLeft + chartW,
+        paddingTop + chartH + 12
+      );
     }
 
     // initial load & auto-refresh
     fetchStatus();
     setInterval(fetchStatus, 30000);
 
-    // ganti wilayah -> refresh data
     const regionSelect = document.getElementById("regionSelect");
     regionSelect.addEventListener("change", () => {
       fetchStatus();
@@ -575,5 +726,3 @@
   </script>
 </body>
 </html>
-    
-
