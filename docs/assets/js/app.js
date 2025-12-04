@@ -28,18 +28,17 @@ function sumLastN(arr, endIdx, n){
   return s;
 }
 
-function extractOpenMeteo(raw){
+function extractFromOne(raw){
   const cur = raw.current || {};
   const hourly = raw.hourly || {};
 
   const times = hourly.time || [];
   const precip = hourly.precipitation || [];
   const soil = hourly.soil_moisture_0_to_1cm || [];
+  const pop = hourly.precipitation_probability || [];
+  const gust = hourly.wind_gusts_10m || [];
 
-  if (!times.length || precip.length !== times.length || soil.length !== times.length){
-    throw new Error("Hourly arrays missing/mismatch (time/precip/soil)");
-  }
-
+  if (!times.length) throw new Error("Missing hourly.time");
   const idx = findNearestIndex(times);
 
   const tempC = Number(cur.temperature_2m);
@@ -52,8 +51,36 @@ function extractOpenMeteo(raw){
   const soilVwc = Number(soil[idx]);
   const soilPct = clamp((Number.isNaN(soilVwc) ? 0 : soilVwc) * 100, 0, 100);
 
+  const popPct = clamp(Number(pop[idx]) || 0, 0, 100);
+
+  // open-meteo gust unit km/h (untuk wind_gusts_10m hourly)
+  const gustKmh = clamp(Number(gust[idx]) || 0, 0, 200);
+
   const timeIso = times[idx] || cur.time || new Date().toISOString();
-  return { tempC: safeTemp, rain1h, rain3h, rain24h, soilPct, timeIso };
+
+  return { tempC: safeTemp, rain1h, rain3h, rain24h, soilPct, popPct, gustKmh, timeIso };
+}
+
+function aggregateWorstCase(list){
+  // worst-case = ambil nilai MAX dari semua titik (lebih aman buat warning)
+  const pickMax = (k) => list.reduce((m, x) => Math.max(m, Number(x[k]) || 0), 0);
+
+  // time: ambil time paling umum (pakai yang pertama)
+  const timeIso = list[0].timeIso;
+
+  // temp: rata-rata biar tidak liar (temp beda sedikit antar titik)
+  const tempC = list.reduce((s, x) => s + (Number(x.tempC) || 0), 0) / Math.max(1, list.length);
+
+  return {
+    timeIso,
+    tempC,
+    rain1h: pickMax("rain1h"),
+    rain3h: pickMax("rain3h"),
+    rain24h: pickMax("rain24h"),
+    soilPct: pickMax("soilPct"),
+    popPct: pickMax("popPct"),
+    gustKmh: pickMax("gustKmh"),
+  };
 }
 
 function startClock(ui){
@@ -67,8 +94,11 @@ async function runOnce(ui, state){
   setRegion(ui, region.label);
 
   setStatus(ui, true, "Fetching…");
-  const raw = await fetchWeather(region);
-  const m = extractOpenMeteo(raw);
+
+  // rawList: array response for each point
+  const rawList = await fetchWeather(region);
+  const extracted = rawList.map(extractFromOne);
+  const m = aggregateWorstCase(extracted);
 
   const risk = computeRisk({
     tempC: m.tempC,
@@ -76,12 +106,16 @@ async function runOnce(ui, state){
     rain3h: m.rain3h,
     rain24h: m.rain24h,
     soilPct: m.soilPct,
+    popPct: m.popPct,
+    gustKmh: m.gustKmh,
     timeIso: m.timeIso,
   });
 
   renderRisk(ui, risk);
   renderMetrics(ui, risk);
-  setStatus(ui, true, "Data OK");
+
+  // status info: tampilkan jumlah titik
+  setStatus(ui, true, `Data OK · ${region.points.length} pts`);
 }
 
 function main(){
@@ -90,7 +124,6 @@ function main(){
 
   startClock(ui);
 
-  // Sheet events
   ui.regionBtn.addEventListener("click", () => {
     renderRegionList(ui, REGIONS, state.activeId, (pickedId) => {
       state.activeId = pickedId;
@@ -102,14 +135,15 @@ function main(){
     });
     openSheet(ui);
   });
-  ui.sheetClose.addEventListener("click", () => closeSheet(ui));
-  ui.sheetBackdrop.addEventListener("click", () => closeSheet(ui));
 
-  // first load + interval
+  ui.sheetBackdrop.addEventListener("click", () => closeSheet(ui));
+  ui.sheetClose.addEventListener("click", () => closeSheet(ui));
+
   runOnce(ui, state).catch(err => {
     console.error(err);
     setStatus(ui, false, "API / Data error");
   });
+
   setInterval(() => {
     runOnce(ui, state).catch(err => {
       console.error(err);
