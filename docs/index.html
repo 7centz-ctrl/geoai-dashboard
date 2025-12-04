@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>GEOAI | West Java Region</title>
+  <title>GEOAI | West Java Region Monitor</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     * {
@@ -58,20 +58,54 @@
       box-shadow: 0 0 12px rgba(34,197,94,0.7);
     }
 
-    .region-title {
-      font-size: 24px;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-    }
-
     .region-sub {
       font-weight: 300;
       font-size: 12px;
       color: #9ca3af;
+      margin-top: 2px;
+    }
+
+    .region-pill {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 6px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid #1f2937;
+    }
+
+    .region-pill select {
+      background: transparent;
+      border: none;
+      color: #e5e7eb;
+      font-size: 11px;
+      padding: 0 2px;
+      outline: none;
+      appearance: none;
+    }
+
+    .region-title {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      text-align: center;
+    }
+
+    .region-active {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      color: #9ca3af;
+      text-transform: uppercase;
     }
 
     .clock {
-      font-family: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-family: "JetBrains Mono", ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       font-size: 18px;
       letter-spacing: 0.2em;
       padding: 6px 12px;
@@ -131,10 +165,12 @@
       background: #facc15;
       box-shadow: 0 0 10px rgba(250,204,21,0.8);
     }
+
     .risk-chip[data-level="SIAGA"] .risk-dot {
       background: #fb923c;
       box-shadow: 0 0 10px rgba(251,146,60,0.8);
     }
+
     .risk-chip[data-level="DARURAT"] .risk-dot {
       background: #ef4444;
       box-shadow: 0 0 10px rgba(239,68,68,0.8);
@@ -200,6 +236,7 @@
       margin-top: 10px;
       font-size: 11px;
       color: #6b7280;
+      gap: 12px;
     }
 
     .badge {
@@ -210,6 +247,18 @@
       text-transform: uppercase;
       letter-spacing: 0.14em;
       font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .footer a {
+      color: #9ca3af;
+      text-decoration: none;
+      border-bottom: 1px dotted #4b5563;
+    }
+
+    .footer a:hover {
+      color: #e5e7eb;
+      border-bottom-style: solid;
     }
 
     @media (max-width: 900px) {
@@ -219,8 +268,23 @@
       .app {
         padding: 16px;
       }
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .region-title {
+        align-items: flex-start;
+      }
       .grid {
         grid-template-columns: 1fr;
+      }
+      .footer {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .badge {
+        align-self: flex-end;
       }
     }
   </style>
@@ -233,9 +297,21 @@
           <div class="logo-dot"></div>
           GEOAI
         </div>
-        <div class="region-sub">INDONESIA · WEST JAVA REGION</div>
+        <div class="region-sub">
+          INDONESIA · WEST JAVA REGION
+          <span class="region-pill">
+            <select id="regionSelect">
+              <option value="bandung">Bandung Raya</option>
+              <option value="bogor">Bogor &amp; Puncak</option>
+              <option value="sukabumi">Sukabumi Area</option>
+            </select>
+          </span>
+        </div>
       </div>
-      <div class="region-title">REGION MONITOR</div>
+      <div class="region-title">
+        REGION MONITOR
+        <div class="region-active" id="regionLabel">Bandung Raya</div>
+      </div>
       <div class="clock" id="clock">--:--:--</div>
     </header>
 
@@ -251,7 +327,7 @@
           AMAN: KONDISI RELATIF NORMAL
         </div>
         <div class="risk-sub-label">
-          Model rule-based sementara · akan diganti model AI/ML
+          Model rule-based sementara · akan diganti model AI/ML ketika dataset historis siap.
         </div>
         <div class="confidence-bar">
           AI Confidence <span id="confValue">0%</span>
@@ -287,7 +363,12 @@
     </div>
 
     <div class="footer">
-      <div>Data source: internal dummy · next step: integrasi API cuaca / sensor.</div>
+      <div>
+        Data source: Open-Meteo (cuaca) · model risiko rule-based eksperimen banjir &amp; longsor.
+        <br />
+        Built by
+        <a href="https://github.com/7centz-ctrl" target="_blank" rel="noopener">7CENTZ</a>
+      </div>
       <div class="badge">AUTO REFRESH · 30s</div>
     </div>
   </div>
@@ -305,12 +386,45 @@
     setInterval(updateClock, 1000);
     updateClock();
 
-    const API_URL =
-      "https://api.open-meteo.com/v1/forecast?latitude=-6.9&longitude=107.6&hourly=temperature_2m,precipitation,soil_moisture_0_7cm&forecast_hours=1&timezone=auto";
+    // Daftar wilayah Jawa Barat yang bisa dipilih
+    const REGIONS = {
+      bandung: {
+        label: "Bandung Raya",
+        lat: -6.9,
+        lon: 107.6,
+      },
+      bogor: {
+        label: "Bogor & Puncak",
+        lat: -6.6,
+        lon: 106.8,
+      },
+      sukabumi: {
+        label: "Sukabumi Area",
+        lat: -6.9,
+        lon: 106.9,
+      },
+    };
+
+    function buildUrl(region) {
+      const params = new URLSearchParams({
+        latitude: region.lat,
+        longitude: region.lon,
+        hourly: "temperature_2m,precipitation,soil_moisture_0_7cm",
+        forecast_hours: "1",
+        timezone: "auto",
+      });
+      return "https://api.open-meteo.com/v1/forecast?" + params.toString();
+    }
 
     async function fetchStatus() {
       try {
-        const res = await fetch(API_URL);
+        const select = document.getElementById("regionSelect");
+        const region = REGIONS[select.value];
+
+        document.getElementById("regionLabel").textContent = region.label;
+
+        const apiUrl = buildUrl(region);
+        const res = await fetch(apiUrl);
         if (!res.ok) {
           console.error("API error", res.status);
           return;
@@ -331,7 +445,7 @@
         }
         soilPct = Math.max(0, Math.min(100, soilPct));
 
-        const data = computeRisk(temp, precip, soilPct, hourly.time[idx]);
+        const data = computeRisk(temp, precip, soilPct);
         updateUI(data);
       } catch (e) {
         console.error("Fetch error", e);
@@ -416,9 +530,15 @@
       confBar.style.width = confPercent + "%";
     }
 
+    // initial load & auto-refresh
     fetchStatus();
     setInterval(fetchStatus, 30000);
+
+    // ganti wilayah -> refresh data
+    const regionSelect = document.getElementById("regionSelect");
+    regionSelect.addEventListener("change", () => {
+      fetchStatus();
+    });
   </script>
 </body>
 </html>
-
