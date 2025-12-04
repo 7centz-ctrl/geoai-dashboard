@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>GEOAI | West Java Region</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      background: #050814;
+      color: #f9fafb;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 24px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 1100px;
+      background: radial-gradient(circle at top, #111827, #020617);
+      border-radius: 16px;
+      border: 1px solid #1f2937;
+      padding: 20px 24px 28px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.7);
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      font-size: 13px;
+      text-transform: uppercase;
+      color: #60a5fa;
+    }
+
+    .logo-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 12px rgba(34,197,94,0.7);
+    }
+
+    .region-title {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+    }
+
+    .region-sub {
+      font-weight: 300;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+
+    .clock {
+      font-family: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 18px;
+      letter-spacing: 0.2em;
+      padding: 6px 12px;
+      background: #020617;
+      border-radius: 999px;
+      border: 1px solid #1f2937;
+      color: #e5e7eb;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 2.3fr 1.2fr 1.2fr 1.2fr;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .card {
+      background: linear-gradient(135deg, #020617, #020617);
+      border-radius: 12px;
+      border: 1px solid #1f2937;
+      padding: 14px 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #6b7280;
+      margin-bottom: 8px;
+    }
+
+    .risk-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(248, 250, 252, 0.06);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      margin-bottom: 10px;
+      border: 1px solid rgba(148,163,184,0.4);
+    }
+
+    .risk-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 10px rgba(34,197,94,0.8);
+    }
+
+    .risk-chip[data-level="WASPADA"] .risk-dot {
+      background: #facc15;
+      box-shadow: 0 0 10px rgba(250,204,21,0.8);
+    }
+    .risk-chip[data-level="SIAGA"] .risk-dot {
+      background: #fb923c;
+      box-shadow: 0 0 10px rgba(251,146,60,0.8);
+    }
+    .risk-chip[data-level="DARURAT"] .risk-dot {
+      background: #ef4444;
+      box-shadow: 0 0 10px rgba(239,68,68,0.8);
+    }
+
+    .risk-main-label {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      margin-bottom: 4px;
+    }
+
+    .risk-sub-label {
+      font-size: 11px;
+      color: #9ca3af;
+    }
+
+    .confidence-bar {
+      margin-top: 16px;
+      font-size: 11px;
+      color: #9ca3af;
+    }
+
+    .confidence-track {
+      margin-top: 6px;
+      width: 100%;
+      height: 6px;
+      background: #020617;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid #111827;
+    }
+
+    .confidence-fill {
+      height: 100%;
+      width: 0;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #22c55e, #facc15, #ef4444);
+      transition: width 0.4s ease-out;
+    }
+
+    .metric-value {
+      font-size: 26px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .metric-unit {
+      font-size: 12px;
+      color: #9ca3af;
+    }
+
+    .metric-extra {
+      margin-top: 10px;
+      font-size: 11px;
+      color: #6b7280;
+    }
+
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      font-size: 11px;
+      color: #6b7280;
+    }
+
+    .badge {
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid #1f2937;
+      background: #020617;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 10px;
+    }
+
+    @media (max-width: 900px) {
+      body {
+        padding: 16px;
+      }
+      .app {
+        padding: 16px;
+      }
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <div class="logo">
+          <div class="logo-dot"></div>
+          GEOAI
+        </div>
+        <div class="region-sub">INDONESIA · WEST JAVA REGION</div>
+      </div>
+      <div class="region-title">REGION MONITOR</div>
+      <div class="clock" id="clock">--:--:--</div>
+    </header>
+
+    <div class="grid">
+      <!-- Risk card -->
+      <div class="card">
+        <div class="card-title">Live Analysis · Environmental Risk Level</div>
+        <div class="risk-chip" id="riskChip" data-level="AMAN">
+          <div class="risk-dot"></div>
+          <span id="riskLevelLabel">AMAN</span>
+        </div>
+        <div class="risk-main-label" id="riskMainText">
+          AMAN: KONDISI RELATIF NORMAL
+        </div>
+        <div class="risk-sub-label">
+          Model rule-based sementara · akan diganti model AI/ML
+        </div>
+        <div class="confidence-bar">
+          AI Confidence <span id="confValue">0%</span>
+          <div class="confidence-track">
+            <div class="confidence-fill" id="confBar"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Temp -->
+      <div class="card">
+        <div class="card-title">Temperature</div>
+        <div class="metric-value"><span id="tempVal">--</span>°C</div>
+        <div class="metric-unit">Near-surface air temperature</div>
+        <div class="metric-extra">Updated · <span id="tempTime">--</span></div>
+      </div>
+
+      <!-- Precipitation -->
+      <div class="card">
+        <div class="card-title">Precipitation</div>
+        <div class="metric-value"><span id="precipVal">--</span> mm/h</div>
+        <div class="metric-unit">Rainfall intensity per hour</div>
+        <div class="metric-extra">Updated · <span id="precipTime">--</span></div>
+      </div>
+
+      <!-- Soil saturation -->
+      <div class="card">
+        <div class="card-title">Soil Saturation</div>
+        <div class="metric-value"><span id="soilVal">--</span>%</div>
+        <div class="metric-unit">Estimated saturation threshold</div>
+        <div class="metric-extra">Updated · <span id="soilTime">--</span></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div>Data source: internal dummy · next step: integrasi API cuaca / sensor.</div>
+      <div class="badge">AUTO REFRESH · 30s</div>
+    </div>
+  </div>
+
+  <script>
+    function pad(n) {
+      return n.toString().padStart(2, "0");
+    }
+
+    function updateClock() {
+      const el = document.getElementById("clock");
+      const now = new Date();
+      el.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch("/api/status");
+        if (!res.ok) {
+          console.error("API error", res.status);
+          return;
+        }
+        const data = await res.json();
+        updateUI(data);
+      } catch (e) {
+        console.error("Fetch error", e);
+      }
+    }
+
+    function formatTime(iso) {
+      const d = new Date(iso);
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    function updateUI(data) {
+      document.getElementById("tempVal").textContent = data.temperature_c.toFixed(1);
+      document.getElementById("precipVal").textContent = data.precipitation_mm_per_h.toFixed(1);
+      document.getElementById("soilVal").textContent = data.soil_saturation_pct.toFixed(1);
+
+      const t = formatTime(data.timestamp);
+      document.getElementById("tempTime").textContent = t;
+      document.getElementById("precipTime").textContent = t;
+      document.getElementById("soilTime").textContent = t;
+
+      const riskChip = document.getElementById("riskChip");
+      const riskLevelLabel = document.getElementById("riskLevelLabel");
+      const riskMainText = document.getElementById("riskMainText");
+      const confValue = document.getElementById("confValue");
+      const confBar = document.getElementById("confBar");
+
+      riskChip.dataset.level = data.risk_level;
+      riskLevelLabel.textContent = data.risk_level;
+      riskMainText.textContent = data.risk_label.toUpperCase();
+
+      const confPercent = Math.round(data.ai_confidence * 100);
+      confValue.textContent = confPercent + "%";
+      confBar.style.width = confPercent + "%";
+    }
+
+    fetchStatus();
+    setInterval(fetchStatus, 30000);
+  </script>
+</body>
+</html>
